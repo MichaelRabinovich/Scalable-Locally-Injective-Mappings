@@ -1,6 +1,6 @@
 # Scalable-Locally-Injective-Mappings
 This supplemental archive contains both source code and binaries for the implementation
-used in the paper “Scalable Locally Injective Mappings" by: Michael Rabinovich, Dr. Roi Poranne, Dr. Daniele Panozzo and Prof.Dr. Olga Sorkine.
+used in the paper “Scalable Locally Injective Mappings" by: Michael Rabinovich, Dr. Roi Poranne, Dr. Daniele Panozzo and Prof.Dr. Olga Sorkine-Hornung.
 It currently only supports mesh parametrization minimizing the Symmetric Dirichlet isometric energy.
 
 The content is as follows
