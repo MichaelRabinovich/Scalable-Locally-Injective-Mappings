@@ -1,7 +1,11 @@
 # Scalable-Locally-Injective-Mappings
 This supplemental archive contains both source code and binaries for the implementation
-used in the paper “Scalable Locally Injective Mappings" by: Michael Rabinovich, Dr. Roi Poranne, Dr. Daniele Panozzo and Prof.Dr. Olga Sorkine-Hornung.
-It currently only supports mesh parametrization minimizing the Symmetric Dirichlet isometric energy.
+used in the ETH Technical Report:
+
+“Scalable Locally Injective Mappings"
+Michael Rabinovich, Roi Poranne, Daniele Panozzo and Olga Sorkine-Hornung
+
+It currently only supports mesh parametrization minimizing the symmetric Dirichlet isometric energy.
 
 The content is as follows
 
@@ -22,4 +26,7 @@ To parameterize a mesh, invoke the binary as follows (e.g. on OSX)
 
 $ ./binaries/macos-x86_64/ReweightedARAP camelhead.obj camelhead_parameterized.obj
 
-
+Acknowledgements:
+We thank Wenzel Jakob for porting this code to Linux and Windows and for
+improving the cmake build system.
+This work was supported in part by the ERC Starting Grant iModel (StG-2012-306877) and a gift from Adobe.
