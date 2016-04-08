@@ -18,15 +18,13 @@ double LinesearchParametrizer::parametrize( const Eigen::MatrixXd& V, const Eige
 
     Eigen::MatrixXd d = dst_uv - uv;
 
-    double min_step_to_singularity = compute_max_step_from_singularities(uv,F,d);
-    double max_step_size = min(1., min_step_to_singularity*0.8);
+    double min_step_to_singularity = compute_min_step_to_singularities(uv,F,d);
 
-    return line_search(V,F,uv,d,max_step_size, energy, cur_energy);
+    return line_search(V,F,uv,d,min_step_to_singularity, energy, cur_energy);
 }
-
 double LinesearchParametrizer::line_search(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
                               Eigen::MatrixXd& uv, const Eigen::MatrixXd& d, 
-                              double step_size, Energy* energy, double cur_energy) {
+                              double min_step_to_singularity, Energy* energy, double cur_energy) {
   double old_energy;
   if (cur_energy > 0) {
     old_energy = cur_energy;  
@@ -34,138 +32,69 @@ double LinesearchParametrizer::line_search(const Eigen::MatrixXd& V, const Eigen
     old_energy = energy->compute_energy(V,F,uv); // no energy was given -> need to compute the current energy
   }
   double new_energy = old_energy;
-  int cur_iter = 0; int MAX_STEP_SIZE_ITER = 32;
-  /*
-  Eigen::MatrixXd new_uv = uv + step_size * d;
-  bool res = bisection_wolfe_conditions_search(V,F, energy, d, step_size, uv, new_uv, old_energy, new_energy);
-  if (!res) {
-    cout << "failed line search - exiting" << endl;
-    exit(1);
-  }
-*/
   
-  while (new_energy >= old_energy && cur_iter < MAX_STEP_SIZE_ITER) {
-    Eigen::MatrixXd new_uv = uv + step_size * d;
+  double linesearch_e; Eigen::MatrixXd linesearch_uv;
+  bool ret = bisection_wolfe_conditions_search(V,F, energy, d, min_step_to_singularity, uv, old_energy,
+             linesearch_uv, linesearch_e);
 
-    double cur_e;
-    if ( wolfe_conditions(V,F, energy, d, step_size, uv, new_uv, old_energy, cur_e) != WOLF_COND_ERROR::ERR_OK) {
-      cout << "reducing step size" << endl;
-      step_size /= 2;
-    } else {
-      uv = new_uv;
-      new_energy = cur_e;
-    }
-    cur_iter++;
+  if (ret) {
+    uv = linesearch_uv;
+    new_energy = linesearch_e;
+  } else {
+    cout << "Error: linesearch cannot progress anymore" << endl;
   }
-
-  //cout << "new energy = " << new_energy << endl;
-  if (cur_iter >= MAX_STEP_SIZE_ITER) {
-    cout << "max iter done, exiting" << endl;
-    exit(1);
-  }
-  
   return new_energy;
 }
 
-LinesearchParametrizer::WOLF_COND_ERROR LinesearchParametrizer::wolfe_conditions(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Energy* e,
-   const Eigen::MatrixXd& d, double& alpha, Eigen::MatrixXd& uv,
-   Eigen::MatrixXd& new_uv, double old_e, double& new_e) {
-
-   Eigen::MatrixXd old_grad(uv.rows(), uv.cols()); old_grad.setZero();
-   e->compute_grad(V,F,uv,old_grad);
-
-   new_e = e->compute_energy(V,F,new_uv);
-
-   /*
-   // temporary - this is the old condition and not Wolfe
-   if (new_e < old_e ) {
-    cout << "passed (fake condition)" << endl;
-    return true;
-   } else {
-    cout << "failed (fake conditions)" << endl;
-    return false;
-   }
-   */
-   
-   //if (new_e > old_e) return false;
-   // sufficient decrease condition
-   //cout << "d.rows() =" << d.rows() << " old_grad.rows() = " << old_grad.rows() << endl;
-   double d_ograd_prod = dot_prod_uv_format(d,old_grad);
-   //cout << "d_ograd_prod = " << d_ograd_prod << endl;
-   if (new_e > old_e + wolfe_c1 * alpha * d_ograd_prod) {
-    //cout << "failed wolfe conditions(1)" << endl;
-    //cout << "ohh" << endl;
-    //exit(1);
-    return WOLF_COND_ERROR::ERR_SUFF_DECREASE;
-   }
-
-   // curvature condition
-   
-   Eigen::MatrixXd new_grad(uv.rows(), uv.cols()); new_grad.setZero();
-   e->compute_grad(V,F,new_uv,new_grad);
-   double d_ngrad_prod = dot_prod_uv_format(d,new_grad);
-   if (abs(d_ngrad_prod) > wolfe_c2*abs(d_ograd_prod)) {
-    //cout << "failed wolfe conditions(2), searching for the minimum" << endl;
-    if (d_ngrad_prod > 0) {
-      return WOLF_COND_ERROR::ERR_CURV_FOR;
-    } else {
-      return WOLF_COND_ERROR::ERR_CURV_BACK; 
-    }
-  }
-
-  cout << "passed wolfe conditions!" << endl;
-  return WOLF_COND_ERROR::ERR_OK;
-}
-
 bool LinesearchParametrizer::bisection_wolfe_conditions_search(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Energy* e,
-   const Eigen::MatrixXd& d, double max_alpha, Eigen::MatrixXd& uv,
-   Eigen::MatrixXd& new_uv, double old_e, double& new_e) {
+   const Eigen::MatrixXd& d, double min_step_to_singularity, Eigen::MatrixXd& uv, double old_e, 
+   Eigen::MatrixXd& new_uv, double& new_e) {
 
+  // first find maximum direction
+  double max_alpha = 0.99 * min_step_to_singularity;
   double min_alpha = 0;
-  double step_size = max_alpha;
+  double step_size = min(1., 0.8*min_step_to_singularity);
 
-   Eigen::MatrixXd old_grad(uv.rows(), uv.cols()); old_grad.setZero();
-   e->compute_grad(V,F,uv,old_grad);
+  new_uv = uv + step_size * d;
+  Eigen::MatrixXd old_grad(uv.rows(), uv.cols()); old_grad.setZero();
+  e->compute_grad(V,F,uv,old_grad);
+  double d_ograd_prod = dot_prod_uv_format(d,old_grad);
+  
+  new_e = e->compute_energy(V,F,new_uv);
 
-   new_e = e->compute_energy(V,F,new_uv);
+   const int MAX_ITER = 50;
+   int iters = 0;
+   for (; iters < MAX_ITER; iters++) {
 
-   const int MAX_ITER = 1e3;
-   int iter_num = 0;
-   WOLF_COND_ERROR err = wolfe_conditions(V,F,e,d,max_alpha, uv, new_uv, old_e, new_e);
-   while (err != WOLF_COND_ERROR::ERR_OK) {
-     cout << "wolfe conditions didn't pass" << endl;
-     switch (err) {
-        case WOLF_COND_ERROR::ERR_SUFF_DECREASE: {
-            max_alpha = step_size;
-            step_size = (min_alpha + max_alpha)/2.;
-            cout << "err_suff_decrease , new step size = " << step_size << endl;
-            break;
-        }
-        case WOLF_COND_ERROR::ERR_CURV_FOR: {
-            max_alpha = step_size;
-            step_size = (min_alpha + max_alpha)/2.;
-            cout << "err_curve_forward , new step size = " << step_size << endl;
-            break;
-        }
-        case WOLF_COND_ERROR::ERR_CURV_BACK: {
+      // sufficient decrease check: Wolfe condition number 1
+      if (new_e > old_e + wolfe_c1 * step_size * d_ograd_prod) {
+        max_alpha = step_size;
+        step_size = (min_alpha + max_alpha) / 2.;
+
+      } else {
+        
+        Eigen::MatrixXd new_grad(uv.rows(), uv.cols()); new_grad.setZero();
+        e->compute_grad(V,F,new_uv,new_grad);
+        double d_ngrad_prod = dot_prod_uv_format(d,new_grad);
+        
+        // curvature condition: (Strong) Wolfe Condition number 2
+        if (abs(d_ngrad_prod) > wolfe_c2*abs(d_ograd_prod)) {
+          if (d_ngrad_prod > 0) {
+            // make me smaller
+            max_alpha = step_size;            
+          } else {
+            // make me bigger
             min_alpha = step_size;
-            step_size = (max_alpha + min_alpha)/2.;
-            cout << "err_curve_backward , new step size = " << step_size << endl;
-            break;
-        }
-        case WOLF_COND_ERROR::ERR_OK: {
+          }
+          step_size = (min_alpha + max_alpha) / 2.;
+        } else {
           return true;
         }
-     }
-     new_uv = uv + step_size * d;
-     new_e = e->compute_energy(V,F,new_uv);
-     err = wolfe_conditions(V,F,e,d,max_alpha, uv, new_uv, old_e, new_e);
-     iter_num++;
-
-     if (iter_num > MAX_ITER) return false;
-   }
-
-   return true;
+    }
+    new_uv = uv + step_size * d;
+    new_e = e->compute_energy(V,F,new_uv);
+  }
+   return (iters < MAX_ITER); 
 }
 
 double LinesearchParametrizer::dot_prod_uv_format(const Eigen::MatrixXd& x, const Eigen::MatrixXd& y) {
@@ -180,7 +109,7 @@ double LinesearchParametrizer::dot_prod_uv_format(const Eigen::MatrixXd& x, cons
   return dp;
 }
 
- double LinesearchParametrizer::compute_max_step_from_singularities(const Eigen::MatrixXd& uv,
+ double LinesearchParametrizer::compute_min_step_to_singularities(const Eigen::MatrixXd& uv,
                                             const Eigen::MatrixXi& F,
                                             Eigen::MatrixXd& d) {
     double max_step = INFINITY;

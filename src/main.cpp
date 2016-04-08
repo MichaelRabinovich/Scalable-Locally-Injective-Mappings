@@ -23,7 +23,7 @@ using namespace std;
 void read_mesh(const std::string& mesh_file, Param_State& state);
 void check_mesh_for_issues(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::VectorXd& areas);
 
-const int ITER_NUM = 100;
+const int ITER_NUM = 20;
 
 int main(int argc, char *argv[]) {
   if (argc < 3) {
