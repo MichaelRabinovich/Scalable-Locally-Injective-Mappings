@@ -14,6 +14,8 @@ public:
  virtual double compute_energy(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
  								 Eigen::MatrixXd& uv) = 0;
 
+ virtual void compute_grad(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
+ 								 Eigen::MatrixXd& uv, Eigen::MatrixXd& grad) = 0;
 };
 
 #endif // ENERGY_H

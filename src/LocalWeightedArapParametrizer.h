@@ -34,6 +34,9 @@ public:
   virtual double compute_energy(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
                  Eigen::MatrixXd& uv);
 
+  virtual void compute_grad(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
+                 Eigen::MatrixXd& uv, Eigen::MatrixXd& grad);
+
   void pre_calc();
 
   void compute_jacobians(const Eigen::MatrixXd& uv);

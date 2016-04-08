@@ -80,59 +80,10 @@ public:
 
           s1 = sing(0); s2 = sing(1);
 
-          // Update Weights
-          if (m_state->global_local_energy == Param_State::SYMMETRIC_DIRICHLET) {
-            double s1_g = 2* (s1-pow(s1,-3)); 
-            double s2_g = 2 * (s2-pow(s2,-3));
-            m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));
-
-          } else if (m_state->global_local_energy == Param_State::LOG_ARAP) {
-            // log grad = (j^-t)* log(j'*j)
-            double s1_g = 2 * (log(s1)/s1); 
-            double s2_g = 2 * (log(s2)/s2); 
-            m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));
-          } else if (m_state->global_local_energy == Param_State::CONFORMAL ){ 
-            
-            double s1_g = 1/(2*s2) - s2/(2*pow(s1,2));
-            double s2_g = 1/(2*s1) - s1/(2*pow(s2,2));
-            
-            double geo_avg = sqrt(s1*s2);
-            double s1_min = geo_avg; double s2_min = geo_avg;
-            
-            m_sing_new << sqrt(s1_g/(2*(s1-s1_min))), sqrt(s2_g/(2*(s2-s2_min)));
-       
-            // change local step
-            closest_sing_vec << s1_min,s2_min;
-            ri = ui*closest_sing_vec.asDiagonal()*vi.transpose();
-
-            
-          } else if (m_state->global_local_energy == Param_State::ARAP) {
-            m_sing_new << 1,1;
-          } else if (m_state->global_local_energy == Param_State::AMIPS_ISO_2D) {
-            // Amips ISO energy in singular values: exp(5* (  0.5*(s1/s2 +s2/s1) + 0.25*( s1*s2 + 1/(s1*s2) )  ) )
-            // Partial derivatives for s1 is: 5*( 0.25 * (s2-1/(s2*s1^2)) + 0.5*(1/s2 - s2/(s1^2))  )* exp(5* (  0.5*(s1/s2 +s2/s1) + 0.25*( s1*s2 + 1/(s1*s2) )  ) )
-            double exp_thing = exp(exp_factor*(0.5*(s1/s2 + s2/s1) + 0.25*(s1*s2 + pow(s1*s2,-1))));
-            double s1_g = exp_thing*exp_factor * (0.25 * (s2- (1./(s2*pow(s1,2)))) + 0.5 * ((1./s2) - s2/(pow(s1,2))) ); //(exp_factor/4)*(s2- (1./(s2*pow(s1,2))))*exp_thing + (exp_factor/2)*((1./s2) - s2/(pow(s1,2)))*exp_thing;
-            double s2_g = exp_thing*exp_factor * (0.25 * (s1- (1./(s1*pow(s2,2)))) + 0.5 * ((1./s1) - s1/(pow(s2,2))) );
-            
-            double s1_zero = sqrt(2*pow(s2,2)+1)/sqrt(pow(s2,2)+2); double s2_zero = sqrt(2*pow(s1,2)+1)/sqrt(pow(s1,2)+2);
-            m_sing_new << sqrt(s1_g/(2*(s1-s1_zero))), sqrt(s2_g/(2*(s2-s2_zero)));
-
-            closest_sing_vec << s1_zero, s2_zero;
-            ri = ui*closest_sing_vec.asDiagonal()*vi.transpose();
-          } else if (m_state->global_local_energy == Param_State::EXP_symmd) {
-              double s1_g = 2* (s1-pow(s1,-3)); 
-              double s2_g = 2 * (s2-pow(s2,-3));
-              m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));        
-
-              double in_exp = exp_factor*(pow(s1,2)+pow(s1,-2)+pow(s2,2)+pow(s2,-2));
-              double exp_thing = exp(in_exp);
-
-              s1_g *= exp_thing*exp_factor;
-              s2_g *= exp_thing*exp_factor;
-
-              m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));
-          }
+          // Update Weights (currently supports only symmetric dirichlet)
+          double s1_g = 2* (s1-pow(s1,-3)); 
+          double s2_g = 2 * (s2-pow(s2,-3));
+          m_sing_new << sqrt(s1_g/(2*(s1-1))), sqrt(s2_g/(2*(s2-1)));
 
           if (abs(s1-1) < eps) m_sing_new(0) = 1; if (abs(s2-1) < eps) m_sing_new(1) = 1;
           mat_W = ui*m_sing_new.asDiagonal()*ui.transpose();
@@ -345,6 +296,13 @@ void LocalWeightedArapParametrizer::add_proximal_penalty() {
       k_idx++;
     }
   }
+}
+
+void LocalWeightedArapParametrizer::compute_grad(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
+                 Eigen::MatrixXd& uv, Eigen::MatrixXd& grad) {
+
+  symmd_p->compute_negative_gradient(V, F, uv, grad);
+  grad = -1*grad;
 }
 
 double LocalWeightedArapParametrizer::compute_energy(const Eigen::MatrixXd& V,

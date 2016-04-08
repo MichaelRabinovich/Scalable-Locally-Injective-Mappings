@@ -428,7 +428,7 @@ void SymmetricDirichlet::update_results(double new_energy) {
 			//right_grad.row(v1_i) = right_grad.row(v1_i) + c_right_grad;*/
 		}
 	}
-	zero_out_const_vertices_search_direction(neg_grad);
+	//zero_out_const_vertices_search_direction(neg_grad);
 }
 
 double SymmetricDirichlet::compute_max_step_from_singularities(const Eigen::MatrixXd& uv,
