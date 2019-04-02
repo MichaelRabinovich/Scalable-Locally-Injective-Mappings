@@ -1,6 +1,6 @@
 # Scalable-Locally-Injective-Mappings
 This supplemental archive contains both source code and binaries for the implementation
-used in the ETH Technical Report:
+used in the ACM TOG Paper:
 
 “Scalable Locally Injective Mappings"
 Michael Rabinovich, Roi Poranne, Daniele Panozzo and Olga Sorkine-Hornung
